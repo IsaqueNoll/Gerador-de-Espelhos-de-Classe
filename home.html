@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Gerador de Espelho de Classe</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--accent:#7c3aed;--muted:#94a3b8;--seat:#0ea5a4;--white:#e6eef6}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial;color:var(--white);background:linear-gradient(180deg,#071129 0%, #071b2a 100%);padding:20px;min-height:100vh;display:flex;flex-direction:column}
+    .app{flex:1;display:grid;grid-template-columns:380px 1fr;gap:20px;max-width:1400px;margin:auto;width:100%}
+    .panel{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.03);padding:18px;border-radius:12px;box-shadow:0 6px 20px rgba(2,6,23,0.6)}
+    h1{font-size:18px;margin:0 0 12px;color:var(--white)}
+    label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    input[type=text], textarea{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:var(--white);resize:vertical}
+    input::placeholder, textarea::placeholder{color:var(--muted);opacity:0.6}
+    textarea{min-height:90px}
+    .row{display:flex;gap:8px;margin-bottom:10px}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;border:none;cursor:pointer;flex-wrap:nowrap;transition:background 0.2s, transform 0.2s}
+    .btn-primary{background:linear-gradient(90deg,var(--accent),#4f46e5);color:white}
+    .btn-ghost{background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--white)}
+    .btn:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,0.3)}
+    .small{font-size:13px;color:var(--muted)}
+    .controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+    .canvas-wrap{display:flex;flex-direction:column;gap:12px;overflow:auto}
+    .stage{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:18px;border-radius:12px;min-height:480px;display:flex;flex-direction:column;align-items:center}
+    .board{height:36px;background:#111827;border-radius:8px;margin:0 auto 16px;padding:8px 12px;display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--muted);box-shadow:inset 0 -4px 20px rgba(0,0,0,0.6)}
+    .seats-grid{display:grid;gap:10px;align-self:center;width:100%;max-width:100%}
+    .seat{min-width:64px;height:52px;border-radius:8px;background:rgba(255,255,255,0.03);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--white);padding:6px;text-align:center;box-shadow:0 4px 12px rgba(2,6,23,0.6);position:relative}
+    .seat.pref-front{outline:2px solid rgba(124,58,237,0.18)}
+    .seat.pref-back{outline:2px solid rgba(14,165,164,0.12)}
+    .seat .meta{position:absolute;left:6px;top:6px;font-size:11px;color:var(--muted)}
+    .legend{display:flex;gap:12px;align-items:center;font-size:13px;color:var(--muted);flex-wrap:wrap}
+    .legend .item{display:flex;gap:6px;align-items:center}
+    .swatch{width:14px;height:14px;border-radius:3px}
+    .score{font-weight:700;padding:4px 8px;border-radius:6px;min-width:50px;text-align:center}
+    .note{font-size:13px;color:var(--muted);margin-top:8px}
+    .error{color:#fb7185;margin-top:8px}
+    .export-controls{display:flex;gap:8px;margin-top:12px}
+    footer{text-align:center;margin-top:20px;font-size:12px;color:var(--muted)}
+    @media (max-width:980px){.app{grid-template-columns:1fr;}.panel{order:2}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="panel">
+      <h1>Gerador de Espelho de Classe</h1>
+      <div class="small">Preencha os campos e clique em "Calcular".</div>
+      <label for="room">1) Tamanho da sala (linhas x colunas)</label>
+      <input id="room" type="text" placeholder="Ex.: 5x8">
+      <label for="students">2) Lista de alunos (um por linha)</label>
+      <textarea id="students" placeholder="Ex.: João&#10;Maria&#10;Marcos&#10;Pedro"></textarea>
+      <label for="avoid">3) Alunos que devem ficar longe</label>
+      <input id="avoid" type="text" placeholder="Ex.: (João, Maria), (Pedro, Marcos)">
+      <label for="close">4) Alunos que devem ficar próximos</label>
+      <input id="close" type="text" placeholder="Ex.: (Ana, Beatriz)">
+      <label for="front">5) Lista de alunos que devem ficar mais para frente</label>
+      <textarea id="front" placeholder="Ex.: João&#10;Pedro"></textarea>
+      <label for="back">6) Lista de alunos que devem ficar mais para trás</label>
+      <textarea id="back" placeholder="Ex.: Maria"></textarea>
+      <div class="controls">
+        <button id="calc" class="btn btn-primary">Calcular</button>
+        <button id="randomize" class="btn btn-ghost">Embaralhar</button>
+      </div>
+      <div id="msg" class="error" style="display:none"></div>
+    </div>
+    <div class="canvas-wrap">
+      <div class="stage panel" id="stage">
+        <div class="board">Quadro (Frente da sala)</div>
+        <div id="gridContainer" style="display:flex;justify-content:center;width:100%">
+          <div id="seats" class="seats-grid"></div>
+        </div>
+        <div style="margin-top:14px;display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;flex-wrap:wrap">
+          <div class="legend">
+            <div class="item"><div class="swatch" style="background:rgba(124,58,237,0.9)"></div><div>Preferência frente</div></div>
+            <div class="item"><div class="swatch" style="background:rgba(14,165,164,0.85)"></div><div>Preferência trás</div></div>
+          </div>
+          <div id="scoreVal" class="score">—</div>
+        </div>
+        <div class="export-controls">
+          <button id="exportPNG" class="btn btn-ghost">Exportar PNG</button>
+          <button id="exportPDF" class="btn btn-ghost">Exportar PDF</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <footer>Isaque Noll © All Rights Reserved</footer>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script>
+    function parseRoom(str){const m=str.trim().toLowerCase().match(/^(\d+)\s*[x×]\s*(\d+)$/);if(!m)return null;return{rows:+m[1],cols:+m[2]};}
+    function parseList(text){return text.split('\n').map(s=>s.trim()).filter(Boolean);}
+    function parseGroups(text){const g=[];const re=/\(([^)]+)\)/g;let m;while((m=re.exec(text))!==null){const items=m[1].split(',').map(s=>s.trim()).filter(Boolean);if(items.length)g.push(items);}return g;}
+    function euclid(a,b){return Math.hypot(a.r-b.r,a.c-b.c)}
+    function computeScore(assign,meta){let score=0;meta.avoid.forEach(group=>{for(let i=0;i<group.length;i++){for(let j=i+1;j<group.length;j++){if(assign[group[i]]==null||assign[group[j]]==null)continue;score+=euclid(meta.seats[assign[group[i]]],meta.seats[assign[group[j]]]);}}});meta.close.forEach(group=>{for(let i=0;i<group.length;i++){for(let j=i+1;j<group.length;j++){if(assign[group[i]]==null||assign[group[j]]==null)continue;score-=euclid(meta.seats[assign[group[i]]],meta.seats[assign[group[j]]]);}}});meta.front.forEach(name=>{if(assign[name]!=null)score+=(meta.rows-meta.seats[assign[name]].r)*0.8});meta.back.forEach(name=>{if(assign[name]!=null)score+=(meta.seats[assign[name]].r+1)*0.5});return score;}
+    function buildSeats(r,c){const s=[];for(let i=0;i<r;i++){for(let j=0;j<c;j++)s.push({r:i,c:j});}return s;}
+    function solve(names,meta,iters=3000){const seats=buildSeats(meta.rows,meta.cols);meta.seats=seats;const n=names.length;if(n>seats.length)return{error:'Mais alunos que cadeiras'};const idx=[...Array(seats.length).keys()];function randomSolution(){const a=idx.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a.slice(0,n);}function scoreOrder(o){const map={};for(let i=0;i<names.length;i++)map[names[i]]=o[i];return computeScore(map,meta);}let best=randomSolution(),bestS=scoreOrder(best);for(let r=0;r<5;r++){let cur=randomSolution(),curS=scoreOrder(cur);for(let t=0;t<iters/5;t++){const i=Math.floor(Math.random()*n),j=Math.floor(Math.random()*n);if(i===j)continue;const o=cur.slice();[o[i],o[j]]=[o[j],o[i]];const s2=scoreOrder(o);if(s2>curS||Math.random()<0.001){cur=o;curS=s2;}if(curS>bestS){bestS=curS;best=o.slice();}}}const assign={};for(let i=0;i<names.length;i++)assign[names[i]]=best[i];return{assign,score:bestS,seats};}
+    function render(res,names,meta){const seatsEl=document.getElementById('seats');seatsEl.innerHTML='';seatsEl.style.gridTemplateColumns=`repeat(${meta.cols},1fr)`;const rev=new Array(meta.seats.length).fill(null);names.forEach(n=>rev[res.assign[n]]=n);for(let r=0;r<meta.rows;r++){for(let c=0;c<meta.cols;c++){const idx=r*meta.cols+c;const el=document.createElement('div');el.className='seat';const name=rev[idx];if(name){el.textContent=name;if(meta.frontSet.has(name))el.classList.add('pref-front');if(meta.backSet.has(name))el.classList.add('pref-back');}else{el.style.opacity=0.3;}seatsEl.appendChild(el);}}const score=document.getElementById('scoreVal');const normalized=Math.max(0,Math.min(10,(res.score/ (meta.rows*meta.cols*1.5))*10));score.textContent=normalized.toFixed(1);if(normalized<4)score.style.background='#dc2626';else if(normalized<7)score.style.background='#f59e0b';else score.style.background='#16a34a';}
+    function gatherMeta(){const r=parseRoom(document.getElementById('room').value);if(!r)return{error:'Tamanho inválido'};const names=parseList(document.getElementById('students').value);return{rows:r.rows,cols:r.cols,names,avoid:parseGroups(document.getElementById('avoid').value),close:parseGroups(document.getElementById('close').value),front:parseList(document.getElementById('front').value),back:parseList(document.getElementById('back').value),frontSet:new Set(parseList(document.getElementById('front').value)),backSet:new Set(parseList(document.getElementById('back').value))};}
+    function showMsg(t){const m=document.getElementById('msg');m.style.display='block';m.textContent=t;}
+    function hideMsg(){document.getElementById('msg').style.display='none';}
+    document.getElementById('calc').onclick=()=>{hideMsg();const meta=gatherMeta();if(meta.error)return showMsg(meta.error);const res=solve(meta.names,meta);if(res.error)return showMsg(res.error);render(res,meta.names,meta);}
+    document.getElementById('randomize').onclick=()=>{hideMsg();const meta=gatherMeta();if(meta.error)return showMsg(meta.error);const seats=buildSeats(meta.rows,meta.cols);meta.seats=seats;const idx=[...Array(seats.length).keys()];for(let i=idx.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[idx[i],idx[j]]=[idx[j],idx[i]]}const assign={};for(let i=0;i<meta.names.length;i++)assign[meta.names[i]]=idx[i];render({assign,score:0},meta.names,meta);}
+    async function exportImagePDF(type){
+      const stage=document.getElementById('stage');
+      const clone=stage.cloneNode(true);
+      clone.style.background='white';
+      clone.style.color='black';
+      clone.querySelectorAll('.seat').forEach(s=>{
+        s.style.background='#f3f4f6';
+        s.style.color='black';
+        s.style.boxShadow='none';
+        s.style.outline='1px solid #ccc';
+      });
+      clone.querySelector('.board').style.background='#e5e7eb';
+      clone.querySelector('.board').style.color='#111';
+      clone.querySelectorAll('.btn').forEach(b=>b.remove()); // remove botões na exportação
+      document.body.appendChild(clone);
+      window.scrollTo(0,0);
+      const canvas=await html2canvas(clone,{backgroundColor:'#fff',scale:2});
+      document.body.removeChild(clone);
+      if(type==='png'){
+        const link=document.createElement('a');
+        link.download='espelho.png';
+        link.href=canvas.toDataURL('image/png',1.0);
+        link.click();
+      }else{
+        const {jsPDF}=window.jspdf;
+        const pdf=new jsPDF({orientation:'landscape',unit:'px',format:[canvas.width,canvas.height]});
+        pdf.addImage(canvas.toDataURL('image/png',1.0),'PNG',0,0,canvas.width,canvas.height);
+        pdf.save('espelho.pdf');
+      }
+    }
+    document.getElementById('exportPNG').onclick=()=>exportImagePDF('png');
+    document.getElementById('exportPDF').onclick=()=>exportImagePDF('pdf');
+  </script>
+</body>
+</html>
